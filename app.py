@@ -180,7 +180,7 @@ app.layout = html.Div(children=[HEADER,BODY])
 def update_figure(content, name, date):
 
     if not content:
-        return [],[], [], []
+        raise dash.exceptions.PreventUpdate
 
     content_type, content_string = content.split(',')
     decoded = base64.b64decode(content_string)
