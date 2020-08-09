@@ -1,4 +1,4 @@
-#!/home/vladgriguta/smallProjects/dashboardFuzzyMatching/env/bin/python
+#!/home/vladgriguta/dashboards/dashboardFuzzyMatching/env/bin/python3
 # EASY-INSTALL-ENTRY-SCRIPT: 'dash==1.14.0','console_scripts','dash-generate-components'
 __requires__ = 'dash==1.14.0'
 import re

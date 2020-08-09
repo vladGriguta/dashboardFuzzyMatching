@@ -8,6 +8,10 @@ import pandas as pd
 import base64
 
 
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+server = app.server
+
+
 SUBMIT_BUTTON = [
     dbc.CardHeader(
         html.Div([
@@ -152,8 +156,6 @@ BODY = dbc.Container(
     className="mt-12",
 )
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-server = app.server  # for Heroku deployment
 
 app.layout = html.Div(children=[HEADER,BODY])
 
