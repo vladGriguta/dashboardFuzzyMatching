@@ -258,7 +258,7 @@ def matching_table(content, n_clicks_launch):
     orig_series = df[sheets[0]].iloc[:,0]
     match_series = df[sheets[1]].iloc[:,0]
 
-    def matchStrings(wordList,orig_series,match_series):
+    def matchStrings([wordList,orig_series,match_series]):
         def replaceWords(s):
             for word in wordList:
                 s = s.replace(word,'')
@@ -283,7 +283,7 @@ def matching_table(content, n_clicks_launch):
 
         return df
 
-    df = q.enqueue(matchStrings, wordList,orig_series,match_series)
+    df = q.enqueue(matchStrings, [wordList,orig_series,match_series])
 
     return [{"name": i, "id": i} for i in df.columns], df.to_dict("rows")
 
