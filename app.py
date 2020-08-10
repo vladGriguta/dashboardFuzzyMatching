@@ -5,11 +5,16 @@ import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
+from fuzzywuzzy import fuzz, process
 import base64
+
 
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 server = app.server
+
+# global variables
+wordList = []
 
 
 SUBMIT_BUTTON = [
@@ -24,15 +29,11 @@ SUBMIT_BUTTON = [
                         'textAlign': 'center',
                         'borderStyle': 'dashed',
                         'width': '100%',
-
                         'float':'center',
-                        
                         'height': '40px',
                         'lineHeight': '40px',
                         'borderWidth': '1px',
-                        
                         'borderRadius': '5px',
-                        
                         'margin': '10px'
                     },
                     # Do not allow multiple files to be uploaded
@@ -52,9 +53,9 @@ SUBMIT_BUTTON = [
                             fixed_rows={'headers': True},
                             style_cell={'textAlign': 'center'},
                             style_data_conditional=[{'if': {'row_index': 'odd'}, 'backgroundColor': 'rgb(248, 248, 248)'}],
-                            ),
-                        ],
                         ),
+                    ],),
+
                     dbc.Col([
                         dt.DataTable(
                             id='matching_column',
@@ -65,21 +66,48 @@ SUBMIT_BUTTON = [
                             fixed_rows={'headers': True},
                             style_cell={'textAlign': 'center'},
                             style_data_conditional=[{'if': {'row_index': 'odd'}, 'backgroundColor': 'rgb(248, 248, 248)'}],
-                            ),
-                        ],),
-                    ],),
+                        ),
+                    ]),
+                ]),
+            ],
+            className="container"),
 
+            dbc.CardFooter([
+                dbc.Row([dbc.Button("Start Matching", id = 'launch-matching-button', color="success")],align="center",),
+                dbc.Progress(id='progress-bar',striped=True),
+            ]),
 
+            dbc.CardHeader(html.H5("Matching Results")),
+            dbc.CardBody([
+
+                dbc.Row([
+                    dbc.Col([
+                        dt.DataTable(
+                            id='table-matched-columns',
+                            style_table={'height': '300px', 'overflowY': 'auto'},
+                            style_header={'backgroundColor': 'rgb(230, 230, 230)', 'fontWeight': 'bold'},
+                            #fixed_rows={'headers': True},
+                            style_cell={'textAlign': 'center'},
+                            style_data_conditional=[{'if': {'row_index': 'odd'}, 'backgroundColor': 'rgb(248, 248, 248)'}],
+                        ),
+                    ]),
+                ]),
+            ],
+            className="container"),
+                
+
+                
+            dbc.CardBody([
                 dbc.Row(id='row-excluded-words'),
                 dbc.Row([
                     dbc.Col(dbc.Input(id="input-domain-specific-words", type="text")),
                     dbc.Col(dbc.Button("Add word", id = 'add-button', color="success", className="mr-1"),width=2),
                     dbc.Col(dbc.Button("Delete word", id = 'delete-button', color="danger", className="mr-1"),width=2),
-                    dbc.Col(dbc.Button("Reset word", id = 'reset-button', color="secondary", className="mr-1"),width=2),
+                    dbc.Col(dbc.Button("Reset word list", id = 'reset-button', color="secondary", className="mr-1"),width=2),
                     ]),
                 ]),
             ],
-            className="container")
+            className="container"),
         ),
 ]
 
@@ -157,7 +185,7 @@ BODY = dbc.Container(
 )
 
 
-app.layout = html.Div(children=[HEADER,BODY])
+app.layout = html.Div(children=[HEADER])
 
 
 
@@ -177,7 +205,7 @@ app.layout = html.Div(children=[HEADER,BODY])
     )
 
 
-def update_figure(content, name, date):
+def update_table(content, name, date):
 
     if not content:
         raise dash.exceptions.PreventUpdate
@@ -196,16 +224,72 @@ def update_figure(content, name, date):
 
 
 
-wordList = []
+@app.callback(
+    [Output('table-matched-columns', 'columns'),
+     Output('table-matched-columns', 'data'),],
+    [Input('upload', 'contents'),
+     Input('launch-matching-button', 'n_clicks')],
+     )
+
+def matching_table(content, n_clicks_launch):
+
+    if not content:
+        raise dash.exceptions.PreventUpdate
+    else:
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            raise dash.exceptions.PreventUpdate
+        else:
+            button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+            if button_id != 'launch-matching-button':
+                raise dash.exceptions.PreventUpdate
+
+
+    content_type, content_string = content.split(',')
+    decoded = base64.b64decode(content_string)
+
+    df = pd.read_excel(decoded,sheet_name=None)
+
+    sheets = list(df.keys())
+
+    orig_series = df[sheets[0]].iloc[:,0]
+    match_series = df[sheets[1]].iloc[:,0]
+
+    def replaceWords(s):
+        for word in wordList:
+            s = s.replace(word,'')
+        return s
+
+    orig_series = orig_series.apply(lambda x: replaceWords(str(x).lower()))
+    match_series = match_series.apply(lambda x: replaceWords(str(x).lower()))
+
+    matching_col = []
+    similarity = []
+    for elem in match_series:
+        ratio = process.extract( elem, orig_series, limit=1, scorer = fuzz.token_set_ratio)
+        matching_col.append(ratio[0][0])
+        similarity.append(ratio[0][1])
+
+    df = pd.DataFrame(match_series)
+    df['matching_col'] = pd.Series(matching_col)
+    df['similarity'] = pd.Series(similarity)
+
+    df.sort_values('similarity',inplace=True,ascending=False)
+    df = df.reset_index(drop=True).reset_index()
+
+    return [{"name": i, "id": i} for i in df.columns], df.to_dict("rows")
+
+
 
 @app.callback(
     [Output('row-excluded-words','children')],
     [Input('input-domain-specific-words','value'),
      Input('add-button','n_clicks'),
-     Input('delete-button','n_clicks')],
+     Input('delete-button','n_clicks'),
+     Input('reset-button','n_clicks')],
      )
 
-def updateWordList(word,n_clicks_add,n_clicks_delete):
+def updateWordList(word,n_clicks_add,n_clicks_delete,n_clicks_reset):
 
     ctx = dash.callback_context
     if not ctx.triggered:
@@ -224,16 +308,17 @@ def updateWordList(word,n_clicks_add,n_clicks_delete):
         if word not in wordList:
             wordList.append(word)
 
+    elif button_id == 'reset-button':
+        for el in wordList:
+            wordList.remove(el)
+
     childWordList = []
     for word in wordList:
         childWordList = childWordList + [dbc.ListGroupItem(word)]
 
     return [dbc.ListGroup(childWordList,horizontal=True, className="mb-2")]
 
-@app.callback(Output('input-domain-specific-words','value'),
-             [Input('reset-button','n_clicks')])
-def update(reset):
-    return ''
+
 
 if __name__ == "__main__":
-    app.run_server(debug=False)
+    app.run_server(debug=True)
