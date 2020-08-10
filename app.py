@@ -7,8 +7,11 @@ import dash_html_components as html
 import pandas as pd
 from fuzzywuzzy import fuzz, process
 import base64
+from rq import Queue
+from worker import conn
 
-
+# redis connection to execute tasks in the background
+q = Queue(connection=conn)
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 server = app.server
@@ -255,30 +258,34 @@ def matching_table(content, n_clicks_launch):
     orig_series = df[sheets[0]].iloc[:,0]
     match_series = df[sheets[1]].iloc[:,0]
 
-    def replaceWords(s):
-        for word in wordList:
-            s = s.replace(word,'')
-        return s
+    def matchStrings(wordList,orig_series,match_series):
+        def replaceWords(s):
+            for word in wordList:
+                s = s.replace(word,'')
+            return s
 
-    orig_series = orig_series.apply(lambda x: replaceWords(str(x).lower()))
-    match_series = match_series.apply(lambda x: replaceWords(str(x).lower()))
+        orig_series = orig_series.apply(lambda x: replaceWords(str(x).lower()))
+        match_series = match_series.apply(lambda x: replaceWords(str(x).lower()))
 
-    matching_col = []
-    similarity = []
-    for elem in match_series:
-        ratio = process.extract( elem, orig_series, limit=1, scorer = fuzz.token_set_ratio)
-        matching_col.append(ratio[0][0])
-        similarity.append(ratio[0][1])
+        matching_col = []
+        similarity = []
+        for i,elem in match_series.iterrows():
+            ratio = process.extract( elem, orig_series, limit=1, scorer = fuzz.token_set_ratio)
+            matching_col.append(ratio[0][0])
+            similarity.append(ratio[0][1])
 
-    df = pd.DataFrame(match_series)
-    df['matching_col'] = pd.Series(matching_col)
-    df['similarity'] = pd.Series(similarity)
+        df = pd.DataFrame(match_series)
+        df['matching_col'] = pd.Series(matching_col)
+        df['similarity'] = pd.Series(similarity)
 
-    df.sort_values('similarity',inplace=True,ascending=False)
-    df = df.reset_index(drop=True).reset_index()
+        df.sort_values('similarity',inplace=True,ascending=False)
+        df = df.reset_index(drop=True).reset_index()
+
+        return df
+
+    result = q.enqueue(matchStrings, wordList,orig_series,match_series)
 
     return [{"name": i, "id": i} for i in df.columns], df.to_dict("rows")
-
 
 
 @app.callback(
