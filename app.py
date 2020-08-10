@@ -283,7 +283,7 @@ def matching_table(content, n_clicks_launch):
 
         return df
 
-    result = q.enqueue(matchStrings, wordList,orig_series,match_series)
+    df = q.enqueue(matchStrings, wordList,orig_series,match_series)
 
     return [{"name": i, "id": i} for i in df.columns], df.to_dict("rows")
 
