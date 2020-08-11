@@ -9,9 +9,10 @@ from fuzzywuzzy import fuzz, process
 import base64
 from rq import Queue
 from worker import conn
+import time
 
 # redis connection to execute tasks in the background
-q = Queue(connection=conn)
+q = Queue(connection=conn,job_timeout='3m')
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 server = app.server
@@ -258,32 +259,14 @@ def matching_table(content, n_clicks_launch):
     orig_series = df[sheets[0]].iloc[:,0]
     match_series = df[sheets[1]].iloc[:,0]
 
-    def matchStrings([wordList,orig_series,match_series]):
-        def replaceWords(s):
-            for word in wordList:
-                s = s.replace(word,'')
-            return s
+    from utils import matchStrings
 
-        orig_series = orig_series.apply(lambda x: replaceWords(str(x).lower()))
-        match_series = match_series.apply(lambda x: replaceWords(str(x).lower()))
+    # redis-cli FLUSHDB
 
-        matching_col = []
-        similarity = []
-        for i,elem in match_series.iterrows():
-            ratio = process.extract( elem, orig_series, limit=1, scorer = fuzz.token_set_ratio)
-            matching_col.append(ratio[0][0])
-            similarity.append(ratio[0][1])
-
-        df = pd.DataFrame(match_series)
-        df['matching_col'] = pd.Series(matching_col)
-        df['similarity'] = pd.Series(similarity)
-
-        df.sort_values('similarity',inplace=True,ascending=False)
-        df = df.reset_index(drop=True).reset_index()
-
-        return df
-
-    df = q.enqueue(matchStrings, [wordList,orig_series,match_series])
+    df = q.enqueue(matchStrings, [wordList,orig_series,match_series]).result
+    
+    while df is None:
+        time.sleep(2)
 
     return [{"name": i, "id": i} for i in df.columns], df.to_dict("rows")
 

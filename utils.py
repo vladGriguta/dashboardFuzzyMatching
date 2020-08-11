@@ -1,7 +1,15 @@
 
-def matchStrings(wordList,orig_series,match_series):
+
+
+
+def matchStrings(attributes):
+    from fuzzywuzzy import fuzz, process
     import pandas as pd
-    
+
+    wordList,orig_series,match_series = attributes[0],attributes[1],attributes[2]
+
+    print('called once')
+
     def replaceWords(s):
         for word in wordList:
             s = s.replace(word,'')
@@ -12,7 +20,7 @@ def matchStrings(wordList,orig_series,match_series):
 
     matching_col = []
     similarity = []
-    for i,elem in match_series.iterrows():
+    for i,elem in match_series.iteritems():
         ratio = process.extract( elem, orig_series, limit=1, scorer = fuzz.token_set_ratio)
         matching_col.append(ratio[0][0])
         similarity.append(ratio[0][1])
@@ -23,3 +31,5 @@ def matchStrings(wordList,orig_series,match_series):
 
     df.sort_values('similarity',inplace=True,ascending=False)
     df = df.reset_index(drop=True).reset_index()
+
+    return df
