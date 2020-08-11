@@ -1,6 +1,7 @@
 # excluded pats
 
-/env/*
+env/
+
 *.xlsx
 *.xls
 *.csv
