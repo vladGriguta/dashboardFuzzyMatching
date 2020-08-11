@@ -19,6 +19,7 @@ server = app.server
 
 # global variables
 wordList = []
+df = pd.DataFrame()
 
 
 SUBMIT_BUTTON = [
@@ -79,6 +80,7 @@ SUBMIT_BUTTON = [
             dbc.CardFooter([
                 dbc.Row([dbc.Button("Start Matching", id = 'launch-matching-button', color="success")],align="center",),
                 dbc.Progress(id='progress-bar',striped=True),
+                dcc.Interval(id='trigger_background_job',disabled=True)
             ]),
 
             dbc.CardHeader(html.H5("Matching Results")),
@@ -229,8 +231,7 @@ def update_table(content, name, date):
 
 
 @app.callback(
-    [Output('table-matched-columns', 'columns'),
-     Output('table-matched-columns', 'data'),],
+    [Output('trigger_background_job','disabled')],
     [Input('upload', 'contents'),
      Input('launch-matching-button', 'n_clicks')],
      )
@@ -248,7 +249,6 @@ def matching_table(content, n_clicks_launch):
             if button_id != 'launch-matching-button':
                 raise dash.exceptions.PreventUpdate
 
-
     content_type, content_string = content.split(',')
     decoded = base64.b64decode(content_string)
 
@@ -262,13 +262,19 @@ def matching_table(content, n_clicks_launch):
     from utils import matchStrings
 
     # redis-cli FLUSHDB
-
-    df = q.enqueue(matchStrings, [wordList,orig_series,match_series]).result
     
-    while df is None:
-        time.sleep(2)
+    df = q.enqueue(matchStrings, [wordList,orig_series,match_series]).result    
 
-    return [{"name": i, "id": i} for i in df.columns], df.to_dict("rows")
+
+@app.callback(
+    [Output('table-matched-columns', 'columns'),
+     Output('table-matched-columns', 'data'),
+     Output('trigger_background_job','disabled')],
+    [Input('trigger_background_job','n_intervals'),]
+    )
+def poll_update(n_intervals):
+    if df:
+        return [{"name": i, "id": i} for i in df.columns], df.to_dict("rows"), False
 
 
 @app.callback(
