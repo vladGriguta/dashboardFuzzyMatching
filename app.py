@@ -10,6 +10,7 @@ import base64
 from rq import Queue
 from worker import conn
 import time
+import os
 
 # redis connection to execute tasks in the background
 q = Queue(connection=conn,job_timeout='3m')
@@ -17,10 +18,9 @@ q = Queue(connection=conn,job_timeout='3m')
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 server = app.server
 
-# global variables
-wordList = []
-df = pd.DataFrame()
-
+# initialise global vars
+pd.Series([]).to_csv('wordList.csv',index=None)
+if os.path.exists('matched_data.csv'): os.remove('matched_data.csv')
 
 SUBMIT_BUTTON = [
     dbc.CardHeader(
@@ -80,7 +80,7 @@ SUBMIT_BUTTON = [
             dbc.CardFooter([
                 dbc.Row([dbc.Button("Start Matching", id = 'launch-matching-button', color="success")],align="center",),
                 dbc.Progress(id='progress-bar',striped=True),
-                dcc.Interval(id='trigger_background_job',disabled=True)
+                dcc.Interval(id='trigger_background_job')
             ]),
 
             dbc.CardHeader(html.H5("Matching Results")),
@@ -231,7 +231,7 @@ def update_table(content, name, date):
 
 
 @app.callback(
-    [Output('trigger_background_job','disabled')],
+    [Output('progress-bar','value')],
     [Input('upload', 'contents'),
      Input('launch-matching-button', 'n_clicks')],
      )
@@ -262,19 +262,29 @@ def matching_table(content, n_clicks_launch):
     from utils import matchStrings
 
     # redis-cli FLUSHDB
+    # redis-server
+    # python worker.py
     
-    df = q.enqueue(matchStrings, [wordList,orig_series,match_series]).result    
+    wordList = list(pd.read_csv('wordList.csv').values.ravel())
+
+    df = q.enqueue(matchStrings, [wordList,orig_series,match_series]).result
+
+    return [50]
 
 
 @app.callback(
     [Output('table-matched-columns', 'columns'),
-     Output('table-matched-columns', 'data'),
-     Output('trigger_background_job','disabled')],
+     Output('table-matched-columns', 'data')],
     [Input('trigger_background_job','n_intervals'),]
     )
 def poll_update(n_intervals):
-    if df:
-        return [{"name": i, "id": i} for i in df.columns], df.to_dict("rows"), False
+
+    if os.path.exists('matched_data.csv'):
+        df = pd.read_csv('matched_data.csv')
+        if not df.empty:
+            return [{"name": i, "id": i} for i in df.columns], df.to_dict("rows")
+    else:
+        return [],[]
 
 
 @app.callback(
@@ -286,6 +296,8 @@ def poll_update(n_intervals):
      )
 
 def updateWordList(word,n_clicks_add,n_clicks_delete,n_clicks_reset):
+
+    wordList = list(pd.read_csv('wordList.csv').values.ravel())
 
     ctx = dash.callback_context
     if not ctx.triggered:
@@ -311,6 +323,8 @@ def updateWordList(word,n_clicks_add,n_clicks_delete,n_clicks_reset):
     childWordList = []
     for word in wordList:
         childWordList = childWordList + [dbc.ListGroupItem(word)]
+
+    pd.Series(wordList).to_csv('wordList.csv',index=None)
 
     return [dbc.ListGroup(childWordList,horizontal=True, className="mb-2")]
 

@@ -1,14 +1,12 @@
 
-
-
-
 def matchStrings(attributes):
     from fuzzywuzzy import fuzz, process
     import pandas as pd
+    import os
 
     wordList,orig_series,match_series = attributes[0],attributes[1],attributes[2]
 
-    print('called once')
+    if os.path.exists('matched_data.csv'): os.remove('matched_data.csv')
 
     def replaceWords(s):
         for word in wordList:
@@ -32,4 +30,6 @@ def matchStrings(attributes):
     df.sort_values('similarity',inplace=True,ascending=False)
     df = df.reset_index(drop=True).reset_index()
 
-    return df
+    df.to_csv('matched_data.csv',index=None)
+
+    return True
