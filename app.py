@@ -19,7 +19,7 @@ app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 server = app.server
 
 # initialise global vars
-pd.Series([]).to_csv('wordList.csv',index=None)
+#pd.Series([]).to_csv('wordList.csv',index=None)
 if os.path.exists('matched_data.csv'): os.remove('matched_data.csv')
 
 SUBMIT_BUTTON = [
@@ -104,7 +104,7 @@ SUBMIT_BUTTON = [
 
                 
             dbc.CardBody([
-                dbc.Row(id='row-excluded-words'),
+                dbc.Row(dbc.ListGroup(id='row-excluded-words',horizontal=True, className="mb-2")),
                 dbc.Row([
                     dbc.Col(dbc.Input(id="input-domain-specific-words", type="text")),
                     dbc.Col(dbc.Button("Add word", id = 'add-button', color="success", className="mr-1"),width=2),
@@ -234,9 +234,10 @@ def update_table(content, name, date):
     [Output('progress-bar','value')],
     [Input('upload', 'contents'),
      Input('launch-matching-button', 'n_clicks')],
+    [State('row-excluded-words','children')],
      )
 
-def matching_table(content, n_clicks_launch):
+def launch_matching_table(content, n_clicks_launch,children_GroupList_words):
 
     if not content:
         raise dash.exceptions.PreventUpdate
@@ -260,12 +261,12 @@ def matching_table(content, n_clicks_launch):
     match_series = df[sheets[1]].iloc[:,0]
 
     from utils import matchStrings
-
-    # redis-cli FLUSHDB
-    # redis-server
-    # python worker.py
     
-    wordList = list(pd.read_csv('wordList.csv').values.ravel())
+    # retrieve word list
+    wordList = []
+    if children_GroupList_words:
+        for item in children_GroupList_words:
+            wordList.append(item['props']['children'])
 
     df = q.enqueue(matchStrings, [wordList,orig_series,match_series]).result
 
@@ -293,11 +294,10 @@ def poll_update(n_intervals):
      Input('add-button','n_clicks'),
      Input('delete-button','n_clicks'),
      Input('reset-button','n_clicks')],
+     [State('row-excluded-words','children')],
      )
 
-def updateWordList(word,n_clicks_add,n_clicks_delete,n_clicks_reset):
-
-    wordList = list(pd.read_csv('wordList.csv').values.ravel())
+def updateWordList(word,n_clicks_add,n_clicks_delete,n_clicks_reset,children_GroupList_words):
 
     ctx = dash.callback_context
     if not ctx.triggered:
@@ -305,30 +305,29 @@ def updateWordList(word,n_clicks_add,n_clicks_delete,n_clicks_reset):
     else:
         button_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
-    if button_id not in ['add-button','delete-button']:
+    if button_id not in ['add-button','delete-button','reset-button']:
         raise dash.exceptions.PreventUpdate
+    else:
+        if not children_GroupList_words:
+            children_GroupList_words = []
 
-    elif button_id == 'delete-button':
-        if word in wordList:
-            wordList.remove(word)
-            
-    elif button_id == 'add-button':
-        if word not in wordList:
-            wordList.append(word)
 
-    elif button_id == 'reset-button':
-        for el in wordList:
-            wordList.remove(el)
+        if button_id == 'delete-button':
+            for item in children_GroupList_words:
+                if item['props']['children'] == word:
+                    children_GroupList_words.remove(item)
+                
+        elif button_id == 'add-button':
+            children_GroupList_words.append(dbc.ListGroupItem(word))
 
-    childWordList = []
-    for word in wordList:
-        childWordList = childWordList + [dbc.ListGroupItem(word)]
+        elif button_id == 'reset-button':
+            print('pressed reset')
+            return [[]]
+    print(children_GroupList_words)
 
-    pd.Series(wordList).to_csv('wordList.csv',index=None)
-
-    return [dbc.ListGroup(childWordList,horizontal=True, className="mb-2")]
+    return [children_GroupList_words]
 
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run_server(debug=True,dev_tools_silence_routes_logging = False)
