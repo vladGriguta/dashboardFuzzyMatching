@@ -6,7 +6,8 @@
 
 git push heroku master
 heroku ps:scale worker=1
-heroku logs -d worker(web) --tail
+heroku logs -d worker --tail
+heroku logs -d web --tail
 
 redis-cli FLUSHDB
 redis-server
