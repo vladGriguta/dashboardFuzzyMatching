@@ -268,7 +268,8 @@ def launch_matching_table(content, n_clicks_launch,children_GroupList_words):
         for item in children_GroupList_words:
             wordList.append(item['props']['children'])
 
-    df = q.enqueue(matchStrings, [wordList,orig_series,match_series]).result
+    #df = q.enqueue(matchStrings, [wordList,orig_series,match_series]).result
+    df = q.enqueue(lambda x: x.split(),'worker is on').result
 
     return [50]
 
