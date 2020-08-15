@@ -13,7 +13,7 @@ import time
 import os
 
 # redis connection to execute tasks in the background
-q = Queue(connection=conn,job_timeout='3m')
+q = Queue(connection=conn)
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 server = app.server

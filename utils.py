@@ -3,9 +3,18 @@ def matchStrings(attributes):
     from fuzzywuzzy import fuzz, process
     import pandas as pd
     import os
+    
+
 
     wordList,orig_series,match_series = attributes[0],attributes[1],attributes[2]
 
+    df = pd.DataFrame(match_series)
+    df['orig_series'] = orig_series
+    df.to_csv('matched_data.csv',index=None)
+
+    return df
+
+    """
     if os.path.exists('matched_data.csv'): os.remove('matched_data.csv')
 
     def replaceWords(s):
@@ -33,3 +42,4 @@ def matchStrings(attributes):
     df.to_csv('matched_data.csv',index=None)
 
     return True
+    """
