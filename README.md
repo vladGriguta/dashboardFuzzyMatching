@@ -3,7 +3,7 @@
 Wellcome to fuzzy-string-matching, a web application that automizes the task of merging together lists of incomplete/misspelled names.
 
 
-![Alt Text](https://media.giphy.com/media/vFKqnCdLPNOKc/giphy.gif)
+![Alt Text](https://github.com/vladGriguta/dashboardFuzzyMatching/blob/master/resources/walkthrough.gif)
 
 
 ### To run:
