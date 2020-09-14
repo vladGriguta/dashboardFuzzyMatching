@@ -80,7 +80,7 @@ SUBMIT_BUTTON = [
             dbc.CardFooter([
                 dbc.Row([dbc.Button("Start Matching", id = 'launch-matching-button', color="success")],align="center",),
                 dbc.Progress(id='progress-bar',striped=True),
-                dcc.Interval(id='trigger_background_job')
+                dcc.Interval(id='trigger_background_job'),
             ]),
 
             dbc.CardHeader(html.H5("Matching Results")),
@@ -268,8 +268,8 @@ def launch_matching_table(content, n_clicks_launch,children_GroupList_words):
         for item in children_GroupList_words:
             wordList.append(item['props']['children'])
 
-    #df = q.enqueue(matchStrings, [wordList,orig_series,match_series]).result
-    df = q.enqueue(lambda x: x.split(),'worker is on').result
+    df = q.enqueue(matchStrings, [wordList,orig_series,match_series]).result
+    #df = q.enqueue(lambda x: x.split(),'worker is on').result
 
     return [50]
 
@@ -319,12 +319,16 @@ def updateWordList(word,n_clicks_add,n_clicks_delete,n_clicks_reset,children_Gro
                     children_GroupList_words.remove(item)
                 
         elif button_id == 'add-button':
-            children_GroupList_words.append(dbc.ListGroupItem(word))
+            isExistent = False
+            for item in children_GroupList_words:
+                if item['props']['children'] == word:
+                    isExistent = True
+            if not isExistent:
+                children_GroupList_words.append(dbc.ListGroupItem(word))
 
         elif button_id == 'reset-button':
             print('pressed reset')
             return [[]]
-    print(children_GroupList_words)
 
     return [children_GroupList_words]
 
