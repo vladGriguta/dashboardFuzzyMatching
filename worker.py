@@ -3,6 +3,8 @@ import os
 import redis
 from rq import Worker, Queue, Connection
 
+if os.path.exists('matched_data.csv'): os.remove('matched_data.csv')
+
 listen = ['high', 'default', 'low']
 
 redis_url = os.getenv('REDISTOGO_URL', 'redis://localhost:6379')
